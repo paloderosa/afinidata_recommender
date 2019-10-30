@@ -84,4 +84,7 @@ class CollaborativeFiltering(object):
             print('Epoch {} / train loss {:.3f} / test loss {:.3f}'.format(epoch, train_loss, test_loss))
 
     def recommend(self, user_id):
-        return -np.sort(-self.predict(self.parameters['feat_vec'], self.parameters['user_vec'][:, [user_id]]), axis=0)
+        return -np.sort(
+            -self.predict(self.parameters['feat_vec'], self.parameters['user_vec'][:, [user_id]]),
+            axis=0
+        )
