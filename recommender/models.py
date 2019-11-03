@@ -11,25 +11,35 @@ class CollaborativeFiltering(object):
         self.n_users = n_users
         self.n_posts = n_posts
         self.parameters = {
+            'mean_rating': 0.001 * np.random.rand(n_features, n_users),
+            'bias_user': 0.001 * np.random.rand(1, n_users),
+            'bias_item': 0.001 * np.random.rand(n_features, 1),
             'feat_vec': 0.001 * np.random.rand(n_features, n_posts),
             'user_vec': 0.001 * np.random.rand(n_features, n_users)
         }
         self.training_losses = np.array([])
         self.test_losses = np.array([])
 
-    def loss(self, review_matrix, x, theta, alpha):
-        return (1 / 2.) * np.nansum(np.square(np.dot(x.T, theta) - review_matrix)) \
+    def loss(self, review_matrix, mu, b_user, b_item, x, theta, alpha):
+        return (1 / 2.) * np.nansum(np.square(mu + b_user + b_item + np.dot(x.T, theta) - review_matrix)) \
                + (alpha / 2.) * np.sum(np.square(x)) \
-               + (alpha / 2.) * np.sum(np.square(theta))
+               + (alpha / 2.) * np.sum(np.square(theta)) \
+               + (alpha / 2.) * np.sum(np.square(b_item)) \
+               + (alpha / 2.) * np.sum(np.square(b_user))
 
     def predict(self, x, theta):
         return np.dot(x.T, theta)
 
-    def parameter_gradients(self, review_matrix, x, theta, alpha):
+    def parameter_gradients(self, review_matrix, mu, b_user, b_item, x, theta, alpha):
         mask = ~np.isnan(review_matrix)
         x_grad = np.zeros(x.shape)
         theta_grad = np.zeros(theta.shape)
         n_posts, n_users = review_matrix.shape
+
+        loss_root = mu + b_item + b_user + np.dot(theta.T, x) - review_matrix
+        mu_grad = 2 * np.sum(loss_root[mask])
+
+        # b_user_grad = 
 
         # run over posts
         for post in range(n_posts):
