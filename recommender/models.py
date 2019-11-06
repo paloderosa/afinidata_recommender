@@ -39,7 +39,9 @@ class CollaborativeFiltering(object):
         loss_root = mu + b_item + b_user + np.dot(theta.T, x) - review_matrix
         mu_grad = 2 * np.sum(loss_root[mask])
 
-        # b_user_grad = 
+        b_user_grad = None
+
+        b_item_grad = None
 
         # run over posts
         for post in range(n_posts):
@@ -64,7 +66,7 @@ class CollaborativeFiltering(object):
                 .reshape(self.n_features)
         theta_grad = theta_grad + alpha * theta
 
-        return x_grad, theta_grad
+        return mu_grad, x_grad, theta_grad
 
     def train(self, train_matrix, test_matrix, epochs, alpha, lr):
 
