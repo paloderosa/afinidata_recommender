@@ -1,4 +1,6 @@
 from collections import OrderedDict
+from datetime import datetime
+import pickle
 
 import pandas as pd
 from pandas.api.types import CategoricalDtype
@@ -288,6 +290,11 @@ class SetUpDataframes(object):
         'rename_columns': [('id', 'post_id')]
     }
 
+    response_pipeline = {
+        'set_dtypes': [('response', 'int64')],
+        'drop_rows_with': [('response', [0])]
+    }
+
     @classmethod
     def interaction_df(cls, raw_df):
         """
@@ -309,6 +316,18 @@ class SetUpDataframes(object):
         """
         preprocessor = PreprocessInteractionData(cls.feedback_pipeline)
         return raw_df.pipe(preprocessor.execute_pipeline)
+
+    @classmethod
+    def response_df(cls, raw_df):
+        """
+        Setup the responses dataframe.
+        :param raw_df: Raw dataframe directly read from the MySQL database by the feedback_data
+        method in the ReadDatabase class.
+        :return: feedback pandas dataframe ready for use.
+        """
+        preprocessor = PreprocessInteractionData(cls.response_pipeline)
+        return raw_df.pipe(preprocessor.execute_pipeline)
+
 
     @classmethod
     def overall_df(cls, raw_interaction_df, raw_feedback_df):
@@ -339,3 +358,15 @@ class SetUpDataframes(object):
         :return: pandas dataframe.
         """
         return cls.feedback_df(raw_df).pivot(index='post_id', columns='user_id', values='review')
+
+    @classmethod
+    def response_matrix(cls, raw_df):
+        """
+        Produce feedback matrix with rows associated to posts, columns associated to users and entries
+        given by the feedback given by a user to a post.
+        :param raw_df: raw feedback dataframe.
+        :return: pandas dataframe.
+        """
+        return cls.response_df(raw_df).pivot_table(
+            index='question_id', columns='user_id', values='response', aggfunc='mean')
+
