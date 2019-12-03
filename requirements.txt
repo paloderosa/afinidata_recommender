@@ -1,3 +1,5 @@
+pandas
+
 marshmallow<3
 flask
 flask-restful
@@ -12,3 +14,4 @@ apispec[yaml]
 apispec-webframeworks
 tox
 gunicorn
+

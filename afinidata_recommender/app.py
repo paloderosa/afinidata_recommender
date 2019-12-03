@@ -1,7 +1,7 @@
 from flask import Flask
 
-from afinidata_recommender import auth, api
-from afinidata_recommender.extensions import db, jwt, migrate, apispec
+from afinidata_recommender import api
+from afinidata_recommender.extensions import db, jwt, apispec
 
 
 def create_app(testing=False, cli=False):
@@ -24,33 +24,25 @@ def configure_extensions(app, cli):
     """configure flask extensions
     """
     db.init_app(app)
-    jwt.init_app(app)
-
-    if cli is True:
-        migrate.init_app(app, db)
+    
 
 
 def configure_apispec(app):
     """Configure APISpec for swagger support
     """
-    apispec.init_app(app, security=[{"jwt": []}])
-    apispec.spec.components.security_scheme("jwt", {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-    })
-    apispec.spec.components.schema(
-        "PaginatedResult", {
-            "properties": {
-                "total": {"type": "integer"},
-                "pages": {"type": "integer"},
-                "next": {"type": "string"},
-                "prev": {"type": "string"},
-            }})
+    apispec.init_app(app)
+    #
+    # apispec.spec.components.schema(
+    #     "PaginatedResult", {
+    #         "properties": {
+    #             "total": {"type": "integer"},
+    #             "pages": {"type": "integer"},
+    #             "next": {"type": "string"},
+    #             "prev": {"type": "string"},
+    #         }})
 
 
 def register_blueprints(app):
     """register all blueprints for application
     """
-    app.register_blueprint(auth.views.blueprint)
     app.register_blueprint(api.views.blueprint)
