@@ -137,8 +137,8 @@ class CollaborativeFiltering(object):
         n_test = np.count_nonzero(~np.isnan(test_matrix))
 
         print('*' * 80)
-        print(
-            f'training recommendation model with hyperparameters: regularization {alpha} / latent features {n_features}')
+        print(f'training recommendation model for {epochs} epochs with learning rate {lr} and \n' +
+              f'hyperparameters regularization: {alpha} / latent features: {n_features}')
         print('*' * 80)
         for epoch in range(epochs):
             mu_grad, b_user_grad, b_item_grad, x_grad, theta_grad = self.parameter_gradients(
@@ -180,10 +180,10 @@ class CollaborativeFiltering(object):
             self.losses['test'] = np.append(self.losses['test'], test_loss)
 
             if epoch % 100 == 0:
-                print(f'Epoch {epoch + 1} / train loss {train_loss:.6f} / test loss {test_loss:.6f}')
+                print(f'Epoch {epoch + 1:05d} / train loss {train_loss:.6f} / test loss {test_loss:.6f}')
         print('*' * 80)
         print('training finished. final losses are')
-        print(f'Epoch {epochs} / train loss {train_loss:.6f} / test loss {test_loss:.6f}')
+        print(f'Epoch {epochs:05d} / train loss {train_loss:.6f} / test loss {test_loss:.6f}')
 
     def predict_rating(self, idx):
         try:
