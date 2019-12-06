@@ -95,11 +95,6 @@ def train(epochs=10000, lr=0.00001, alpha=0., depth=1):
     print(f'model has been saved to afinidata_recommender_model_specs.pkl in the local directory')
 
 
-@app.task
-def user_to_activities_df():
-    reader_ms = ReadDatabase(engine, 'contentManagerUsers')
-    child_dob = reader_ms.get_data('parent_user_id, dob', 'messenger_users_child')
-
 
 @app.task
 def recommend(user_id, months):
