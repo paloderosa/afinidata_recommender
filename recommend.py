@@ -26,4 +26,6 @@ model = CollaborativeFiltering()
 
 model.load_model('afinidata_recommender_model_specs')
 
-ratings = model.afinidata_recommend(user_id=5, question_df=question_df, taxonomy_df=taxonomy_df)
+
+def recommend(user_id):
+    return model.afinidata_recommend(user_id=user_id, question_df=question_df, taxonomy_df=taxonomy_df)
