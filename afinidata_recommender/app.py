@@ -1,7 +1,7 @@
 from flask import Flask
 
-from afinidata_recommender import api
-from afinidata_recommender.extensions import db, jwt, apispec
+from afinidata_recommender import auth, api
+from afinidata_recommender.extensions import db, jwt, migrate, apispec, celery
 
 
 def create_app(testing=False, cli=False):
@@ -16,6 +16,7 @@ def create_app(testing=False, cli=False):
     configure_extensions(app, cli)
     configure_apispec(app)
     register_blueprints(app)
+    init_celery(app)
 
     return app
 
@@ -45,4 +46,21 @@ def configure_apispec(app):
 def register_blueprints(app):
     """register all blueprints for application
     """
+    app.register_blueprint(auth.views.blueprint)
     app.register_blueprint(api.views.blueprint)
+
+
+def init_celery(app=None):
+    app = app or create_app()
+    celery.conf.broker_url = app.config['CELERY_BROKER_URL']
+    celery.conf.result_backend = app.config['CELERY_RESULT_BACKEND']
+    celery.conf.update(app.config)
+
+    class ContextTask(celery.Task):
+        """Make celery tasks work with Flask app context"""
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery.Task = ContextTask
+    return celery
