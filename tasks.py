@@ -22,24 +22,35 @@ engine = create_engine(DB_URI)
 
 reader_cm = ReadDatabase(engine, 'CM_BD')
 
-question_df = reader_cm.get_data('id, post_id', 'posts_question', None).set_index('id')
-
-taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
-taxonomy_areas = taxonomy_df.groupby('area_id')
-
-content_df = reader_cm.get_data('id, min_range, max_range', 'posts_post', None)
-
-interaction_df = reader_cm.get_data('user_id, post_id', 'posts_interaction', "type IN ('sended', 'sent')")
-interaction_df = interaction_df[~interaction_df['post_id'].isna()]
-interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
-
-
+question_df = None
+taxonomy_df = None
+taxonomy_areas = None
+content_df = None
+interaction_df = None
 
 
 app = Celery('tasks', broker='pyamqp://guest@localhost//')
 
-# We would like to enable the following sequence of background tasks:
-#
+
+@app.task
+def refresh_data():
+
+    global question_df
+    global taxonomy_df
+    global taxonomy_areas
+    global content_df
+    global interaction_df
+
+    question_df = reader_cm.get_data('id, post_id', 'posts_question', None).set_index('id')
+
+    taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
+    taxonomy_areas = taxonomy_df.groupby('area_id')
+
+    content_df = reader_cm.get_data('id, min_range, max_range', 'posts_post', None)
+
+    interaction_df = reader_cm.get_data('user_id, post_id', 'posts_interaction', "type IN ('sended', 'sent')")
+    interaction_df = interaction_df[~interaction_df['post_id'].isna()]
+    interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
 
 
 @app.task
