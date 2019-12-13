@@ -3,6 +3,7 @@ import os
 
 from celery import Celery
 from dotenv import load_dotenv
+import pandas as pd
 from sqlalchemy import create_engine
 
 from recommender.read_db import ReadDatabase
@@ -22,24 +23,28 @@ engine = create_engine(DB_URI)
 
 reader_cm = ReadDatabase(engine, 'CM_BD')
 
-question_df = reader_cm.get_data('id, post_id', 'posts_question', None).set_index('id')
 
-taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
-taxonomy_areas = taxonomy_df.groupby('area_id')
-
-content_df = reader_cm.get_data('id, min_range, max_range', 'posts_post', None)
-
-interaction_df = reader_cm.get_data('user_id, post_id', 'posts_interaction', "type IN ('sended', 'sent')")
-interaction_df = interaction_df[~interaction_df['post_id'].isna()]
-interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
+app = Celery('tasks', backend='rpc://', broker='pyamqp://guest@localhost//')
 
 
+@app.task
+def refresh_data():
 
+    question_df = reader_cm.get_data('id, post_id', 'posts_question', None)
 
-app = Celery('tasks', broker='pyamqp://guest@localhost//')
+    taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
 
-# We would like to enable the following sequence of background tasks:
-#
+    content_df = reader_cm.get_data('id, min_range, max_range', 'posts_post', None)
+
+    interaction_df = reader_cm.get_data('user_id, post_id', 'posts_interaction', "type IN ('sended', 'sent')")
+    interaction_df = interaction_df[~interaction_df['post_id'].isna()]
+    interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
+
+    return \
+        question_df.to_json(), \
+        taxonomy_df.to_json(), \
+        content_df.to_json(), \
+        interaction_df.to_json()
 
 
 @app.task
@@ -95,16 +100,19 @@ def train(epochs=10000, lr=0.00001, alpha=0., depth=1):
     print(f'model has been saved to afinidata_recommender_model_specs.pkl in the local directory')
 
 
-
 @app.task
-def recommend(user_id, months):
+def recommend(user_id, months, data_required):
     # model initialization and load
     model = CollaborativeFiltering()
 
     model.load_model('afinidata_recommender_model_specs')
+
+    question_df, taxonomy_df, content_df, interaction_df = (pd.read_json(elem) for elem in data_required)
+
     ranking = model.afinidata_recommend(user_id=user_id, question_df=question_df, taxonomy_df=taxonomy_df)
 
     content_for_age = content_df[(content_df['min_range'] <= months) & (content_df['max_range'] >= months)][
         'id'].values.tolist()
     sent_activities = interaction_df[interaction_df['user_id'] == user_id]['post_id'].values.tolist()
-    return ranking[(ranking['post_id'].isin(content_for_age)) & (~ranking['post_id'].isin(sent_activities))]
+    return ranking[(ranking['post_id'].isin(content_for_age)) & (~ranking['post_id'].isin(sent_activities))].to_json()
+
