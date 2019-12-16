@@ -1,10 +1,14 @@
 import pandas as pd
+import pickle
 
 from tasks import recommend, train, refresh_data
 
+fresh_data = None
+refresh_data.delay('fresh_data')
+with open(f'{fresh_data}.pkl', 'rb') as f:
+    fresh_data = pickle.load(f)
 
-fresh_data = refresh_data.delay()
+# model initialization and load
 
-if fresh_data.ready():
-    recommendations = recommend.delay(5, 10, fresh_data.get(timeout=1))
-    recommendations_df = pd.read_json(recommendations.get(timeout=1))
+recommendations = recommend.delay(5, 10, fresh_data)
+recommendations_df = pd.read_json(recommendations.get(timeout=1))

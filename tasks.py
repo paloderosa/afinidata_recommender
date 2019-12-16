@@ -1,5 +1,6 @@
 import logging
 import os
+import pickle
 
 from celery import Celery
 from dotenv import load_dotenv
@@ -7,8 +8,8 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 from recommender.read_db import ReadDatabase
-from recommender.preprocess import SetUpDataframes
 from recommender.models import CollaborativeFiltering
+from recommender.preprocess import SetUpDataframes
 from recommender.datasets import Datasets
 
 
@@ -28,7 +29,7 @@ app = Celery('tasks', backend='rpc://', broker='pyamqp://guest@localhost//')
 
 
 @app.task
-def refresh_data():
+def refresh_data(filename):
 
     question_df = reader_cm.get_data('id, post_id', 'posts_question', None)
 
@@ -40,11 +41,15 @@ def refresh_data():
     interaction_df = interaction_df[~interaction_df['post_id'].isna()]
     interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
 
-    return \
-        question_df.to_json(), \
-        taxonomy_df.to_json(), \
-        content_df.to_json(), \
-        interaction_df.to_json()
+    fresh_data = {
+        'question_df': question_df,
+        'taxonomy_df': taxonomy_df,
+        'content_df': content_df,
+        'interaction_df': interaction_df
+    }
+
+    with open(f'{filename}.pkl', 'wb') as f:
+        pickle.dump(fresh_data, f)
 
 
 @app.task
@@ -102,17 +107,10 @@ def train(epochs=10000, lr=0.00001, alpha=0., depth=1):
 
 @app.task
 def recommend(user_id, months, data_required):
-    # model initialization and load
     model = CollaborativeFiltering()
 
     model.load_model('afinidata_recommender_model_specs')
 
-    question_df, taxonomy_df, content_df, interaction_df = (pd.read_json(elem) for elem in data_required)
+    return model.afinidata_recommend(user_id=user_id, months=months, data_required=data_required)
 
-    ranking = model.afinidata_recommend(user_id=user_id, question_df=question_df, taxonomy_df=taxonomy_df)
-
-    content_for_age = content_df[(content_df['min_range'] <= months) & (content_df['max_range'] >= months)][
-        'id'].values.tolist()
-    sent_activities = interaction_df[interaction_df['user_id'] == user_id]['post_id'].values.tolist()
-    return ranking[(ranking['post_id'].isin(content_for_age)) & (~ranking['post_id'].isin(sent_activities))].to_json()
 

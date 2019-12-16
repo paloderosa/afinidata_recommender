@@ -233,7 +233,11 @@ class CollaborativeFiltering(object):
             self.actors = model_specs['actors']
             self.has_been_trained = True
 
-    def afinidata_recommend(self, user_id, question_df, taxonomy_df):
+    def afinidata_recommend(self, user_id, months, data_required):
+        # data is sequentially ordered and the relation between the indices and the actual
+        # user_id is stored in self.actors['users']. if the user is in this list, which means
+        # that this user has given at least one rating, then find it, else go to the
+        # exceptional case handled by self.predict_rating.
         if user_id in self.actors['users']:
             idx, = np.where(self.actors['users'] == user_id)
             predictions = self.predict_rating(idx[0])
@@ -241,22 +245,45 @@ class CollaborativeFiltering(object):
             predictions = self.predict_rating(-1)
         predictions['question_id'] = self.actors['items']
 
+        question_df = data_required['question_df']
+        taxonomy_df = data_required['taxonomy_df']
+        content_df = data_required['content_df']
+        interaction_df = data_required['interaction_df']
+
         # we add the columns corresponding to question_id and area_id
         predictions = pd.merge(predictions, question_df, 'inner', left_on='question_id', right_on='id')
         predictions = pd.merge(predictions, taxonomy_df, 'inner', 'post_id')
 
+        content_for_age = content_df[(content_df['min_range'] <= months) & (content_df['max_range'] >= months)][
+            'id'].values.tolist()
+        sent_activities = interaction_df[interaction_df['user_id'] == user_id]['post_id'].values.tolist()
+
+        relevant_predictions = predictions[predictions['post_id'].isin(content_for_age)]
+        relevant_unseen_predictions = relevant_predictions[~relevant_predictions['post_id'].isin(sent_activities)]
+
         # we group the predictions by area and take the mean
-        area_performance = predictions[['predictions', 'area_id']].groupby('area_id').mean()
+        area_performance = relevant_predictions[['predictions', 'area_id']].groupby('area_id').mean()
         # we normalize the mean predictions by area
         area_performance['normalized'] = area_performance['predictions'].apply(
             lambda x: (x - area_performance['predictions'].mean()) / area_performance['predictions'].std())
         # we compute probabilities from the normalized means such that lower means correspond
         # to higher probabilities
         area_performance['probabilities'] = area_performance['normalized'].apply(lambda x: np.exp(-x))
-        area_performance['probabilities'] = area_performance['probabilities'] / area_performance['probabilities'].sum()
 
-        # we randomly select an area according to the assigned probabilities
-        selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
-
-        return predictions[predictions['area_id'] == selected_area].sort_values('predictions', ascending=False)
-
+        if len(relevant_unseen_predictions.index) == 0:
+            # we randomly select an area according to the assigned probabilities
+            area_performance['probabilities'] = area_performance['probabilities'] / area_performance[
+                'probabilities'].sum()
+            selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
+            return relevant_predictions[
+                relevant_predictions['area_id'] == selected_area
+                ].sort_values('predictions', ascending=False).to_json()
+        else:
+            available_areas = relevant_unseen_predictions['area_id'].unique()
+            area_performance = area_performance[area_performance.index.isin(available_areas)]
+            area_performance['probabilities'] = area_performance['probabilities'] / area_performance[
+                'probabilities'].sum()
+            selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
+            return relevant_unseen_predictions[
+                relevant_unseen_predictions['area_id'] == selected_area
+                ].sort_values('predictions', ascending=False).to_json()
