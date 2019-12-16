@@ -42,10 +42,10 @@ def refresh_data(filename):
     interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
 
     fresh_data = {
-        'question_df': question_df,
-        'taxonomy_df': taxonomy_df,
-        'content_df': content_df,
-        'interaction_df': interaction_df
+        'question_df': question_df.to_json(),
+        'taxonomy_df': taxonomy_df.to_json(),
+        'content_df': content_df.to_json(),
+        'interaction_df': interaction_df.to_json()
     }
 
     with open(f'{filename}.pkl', 'wb') as f:

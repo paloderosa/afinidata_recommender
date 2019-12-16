@@ -245,10 +245,10 @@ class CollaborativeFiltering(object):
             predictions = self.predict_rating(-1)
         predictions['question_id'] = self.actors['items']
 
-        question_df = data_required['question_df']
-        taxonomy_df = data_required['taxonomy_df']
-        content_df = data_required['content_df']
-        interaction_df = data_required['interaction_df']
+        question_df = pd.read_json(data_required['question_df'])
+        taxonomy_df = pd.read_json(data_required['taxonomy_df'])
+        content_df = pd.read_json(data_required['content_df'])
+        interaction_df = pd.read_json(data_required['interaction_df'])
 
         # we add the columns corresponding to question_id and area_id
         predictions = pd.merge(predictions, question_df, 'inner', left_on='question_id', right_on='id')
