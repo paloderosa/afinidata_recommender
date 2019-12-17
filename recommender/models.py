@@ -245,6 +245,7 @@ class CollaborativeFiltering(object):
             predictions = self.predict_rating(-1)
         predictions['question_id'] = self.actors['items']
 
+        # unfold the data required dictionary
         question_df = pd.read_json(data_required['question_df'])
         taxonomy_df = pd.read_json(data_required['taxonomy_df'])
         content_df = pd.read_json(data_required['content_df'])
@@ -254,6 +255,8 @@ class CollaborativeFiltering(object):
         predictions = pd.merge(predictions, question_df, 'inner', left_on='question_id', right_on='id')
         predictions = pd.merge(predictions, taxonomy_df, 'inner', 'post_id')
 
+        # lists from which we are going to filter next, we will only deliver content appropiate
+        # for the age and activities not sent
         content_for_age = content_df[(content_df['min_range'] <= months) & (content_df['max_range'] >= months)][
             'id'].values.tolist()
         sent_activities = interaction_df[interaction_df['user_id'] == user_id]['post_id'].values.tolist()
@@ -270,20 +273,20 @@ class CollaborativeFiltering(object):
         # to higher probabilities
         area_performance['probabilities'] = area_performance['normalized'].apply(lambda x: np.exp(-x))
 
+        # the logic for selecting an area is the following. if after applying the seen activities and
+        # age content, there are no activities left, send an activity from the pool of all
+        # activities appropiate for an age that has already been seen. if, after these filters,
+        # there is something left, select from the areas for which there are activities left.
         if len(relevant_unseen_predictions.index) == 0:
-            # we randomly select an area according to the assigned probabilities
-            area_performance['probabilities'] = area_performance['probabilities'] / area_performance[
-                'probabilities'].sum()
-            selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
-            return relevant_predictions[
-                relevant_predictions['area_id'] == selected_area
-                ].sort_values('predictions', ascending=False).to_json()
+            predictions_temp = relevant_predictions
         else:
             available_areas = relevant_unseen_predictions['area_id'].unique()
             area_performance = area_performance[area_performance.index.isin(available_areas)]
-            area_performance['probabilities'] = area_performance['probabilities'] / area_performance[
-                'probabilities'].sum()
-            selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
-            return relevant_unseen_predictions[
-                relevant_unseen_predictions['area_id'] == selected_area
-                ].sort_values('predictions', ascending=False).to_json()
+            predictions_temp = relevant_unseen_predictions
+
+        area_performance['probabilities'] = area_performance['probabilities'] / area_performance['probabilities'].sum()
+        # we randomly select an area according to the assigned probabilities
+        selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
+        return predictions_temp[
+            predictions_temp['area_id'] == selected_area
+            ].sort_values('predictions', ascending=False).to_json()

@@ -4,7 +4,6 @@ import pickle
 
 from celery import Celery
 from dotenv import load_dotenv
-import pandas as pd
 from sqlalchemy import create_engine
 
 from recommender.read_db import ReadDatabase
@@ -18,19 +17,20 @@ logger = logging.getLogger(__name__)
 
 load_dotenv('.env')
 
-# set up database reader
+# environment variables
 DB_URI = os.environ.get("DB_URI")
-engine = create_engine(DB_URI)
+CELERY_BROKER = os.environ.get('CELERY_BROKER')
+CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
 
+# set up database reader
+engine = create_engine(DB_URI)
 reader_cm = ReadDatabase(engine, 'CM_BD')
 
-
-app = Celery('tasks', backend='rpc://', broker='pyamqp://guest@localhost//')
+app = Celery('tasks', backend=CELERY_BACKEND, broker=CELERY_BROKER)
 
 
 @app.task
 def refresh_data(filename):
-
     question_df = reader_cm.get_data('id, post_id', 'posts_question', None)
 
     taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
@@ -112,5 +112,3 @@ def recommend(user_id, months, data_required):
     model.load_model('afinidata_recommender_model_specs')
 
     return model.afinidata_recommend(user_id=user_id, months=months, data_required=data_required)
-
-

@@ -9,7 +9,6 @@ class Datasets(object):
         """
         self.df = df
 
-
     @property
     def review_matrix(self):
         return self.df.to_numpy()
