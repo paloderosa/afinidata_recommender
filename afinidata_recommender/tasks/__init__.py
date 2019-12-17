@@ -1,6 +1,6 @@
-from . import example
+from . import tasks
 
 
 __all__ = [
-    'example'
+    'tasks.py'
 ]

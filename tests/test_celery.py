@@ -1,7 +1,7 @@
 import pytest
 
 from afinidata_recommender.app import init_celery
-from afinidata_recommender.tasks.example import dummy_task
+from afinidata_recommender.tasks.tasks import dummy_task
 
 
 @pytest.fixture
