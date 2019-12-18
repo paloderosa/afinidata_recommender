@@ -233,7 +233,7 @@ class CollaborativeFiltering(object):
             self.actors = model_specs['actors']
             self.has_been_trained = True
 
-    def afinidata_recommend(self, user_id, months, data_required):
+    def afinidata_recommend(self, user_id, months, question_df, taxonomy_df, content_df, interaction_df):
         # data is sequentially ordered and the relation between the indices and the actual
         # user_id is stored in self.actors['users']. if the user is in this list, which means
         # that this user has given at least one rating, then find it, else go to the
@@ -244,12 +244,6 @@ class CollaborativeFiltering(object):
         else:
             predictions = self.predict_rating(-1)
         predictions['question_id'] = self.actors['items']
-
-        # unfold the data required dictionary
-        question_df = pd.read_json(data_required['question_df'])
-        taxonomy_df = pd.read_json(data_required['taxonomy_df'])
-        content_df = pd.read_json(data_required['content_df'])
-        interaction_df = pd.read_json(data_required['interaction_df'])
 
         # we add the columns corresponding to question_id and area_id
         predictions = pd.merge(predictions, question_df, 'inner', left_on='question_id', right_on='id')

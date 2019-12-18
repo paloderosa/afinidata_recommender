@@ -30,26 +30,21 @@ app = Celery('tasks', backend=CELERY_BACKEND, broker=CELERY_BROKER)
 
 
 @app.task
-def refresh_data(filename):
+def refresh_data():
     question_df = reader_cm.get_data('id, post_id', 'posts_question', None)
-
     taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
-
     content_df = reader_cm.get_data('id, min_range, max_range', 'posts_post', None)
-
     interaction_df = reader_cm.get_data('user_id, post_id', 'posts_interaction', "type IN ('sended', 'sent')")
     interaction_df = interaction_df[~interaction_df['post_id'].isna()]
+
     interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
 
-    fresh_data = {
-        'question_df': question_df.to_json(),
-        'taxonomy_df': taxonomy_df.to_json(),
-        'content_df': content_df.to_json(),
-        'interaction_df': interaction_df.to_json()
-    }
+    pickle.dump(question_df, open("question.pkl", "wb"))
+    pickle.dump(taxonomy_df, open("taxonomy.pkl", "wb"))
+    pickle.dump(content_df, open("content.pkl", "wb"))
+    pickle.dump(question_df, open("interaction.pkl", "wb"))
 
-    with open(f'{filename}.pkl', 'wb') as f:
-        pickle.dump(fresh_data, f)
+    return
 
 
 @app.task
@@ -70,8 +65,8 @@ def train(epochs=10000, lr=0.00001, alpha=0., depth=1):
     response_df = response_df[
         (response_df['response'].apply(lambda x: x.isdigit())) & (response_df['response'] != '0')]
     response_df = response_df.drop_duplicates().reset_index(drop=True)
-    print('*' * 80)
-    print(f'total number of responses in response_df: {len(response_df)}')
+    logger.info('*' * 80)
+    logger.warning(f'total number of responses in response_df: {len(response_df)}')
 
     # create matrix for training with items over rows and users over columns
     # as a numpy matrix
@@ -100,15 +95,25 @@ def train(epochs=10000, lr=0.00001, alpha=0., depth=1):
         resume=False
     )
 
-    print('*' * 80)
+    logging.info('*' * 80)
     model.save_model(f'afinidata_recommender_model_specs')
-    print(f'model has been saved to afinidata_recommender_model_specs.pkl in the local directory')
+    logging.warning(f'model has been saved to afinidata_recommender_model_specs.pkl in the local directory')
 
 
 @app.task
-def recommend(user_id, months, data_required):
+def recommend(user_id, months):
+    # model initialization and load
     model = CollaborativeFiltering()
 
     model.load_model('afinidata_recommender_model_specs')
 
-    return model.afinidata_recommend(user_id=user_id, months=months, data_required=data_required)
+    question_df, taxonomy_df, content_df, interaction_df =\
+        (pickle.load(open(file_name, "rb")) for file_name in ["question.pkl", "taxonomy.pkl", "content.pkl", "interaction.pkl"])
+
+    ranking = model.afinidata_recommend(user_id=user_id, months=months, question_df=question_df, taxonomy_df=taxonomy_df, content_df=content_df, interaction_df=interaction_df)
+
+    content_for_age = content_df[(content_df['min_range'] <= months) & (content_df['max_range'] >= months)][
+        'id'].values.tolist()
+    sent_activities = interaction_df[interaction_df['user_id'] == user_id]['post_id'].values.tolist()
+    return ranking[(ranking['post_id'].isin(content_for_age)) & (~ranking['post_id'].isin(sent_activities))].to_json()
+
