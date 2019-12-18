@@ -1,0 +1,17 @@
+# WARNING: this file is not suitable for production, please use with caution
+version: '3'
+
+services:
+  web:
+    image: afinidata_recommender
+    build: .
+    command: gunicorn -b 0.0.0.0:5000 afinidata_recommender.wsgi:app
+    env_file:
+      - ./.flaskenv
+    environment:
+      - DATABASE_URI=sqlite:////db/afinidata_recommender.db
+    volumes:
+      - ./afinidata_recommender:/code/afinidata_recommender
+      - ./db/:/db/
+    ports:
+      - "5000:5000"
