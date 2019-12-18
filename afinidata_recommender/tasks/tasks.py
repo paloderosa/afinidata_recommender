@@ -19,14 +19,13 @@ load_dotenv('.env')
 
 # environment variables
 DB_URI = os.environ.get("DB_URI")
-CELERY_BROKER = os.environ.get('CELERY_BROKER')
-CELERY_BACKEND = os.environ.get('CELERY_BACKEND')
+CELERY_BROKER = os.environ.get('CELERY_BROKER', 'pyamqp://guest@localhost/')
 
 # set up database reader
 engine = create_engine(DB_URI)
 reader_cm = ReadDatabase(engine, 'CM_BD')
 
-app = Celery('tasks', backend=CELERY_BACKEND, broker=CELERY_BROKER)
+app = Celery('tasks', backend="rpc", broker=CELERY_BROKER)
 
 
 @app.task
@@ -42,7 +41,7 @@ def refresh_data():
     pickle.dump(question_df, open("question.pkl", "wb"))
     pickle.dump(taxonomy_df, open("taxonomy.pkl", "wb"))
     pickle.dump(content_df, open("content.pkl", "wb"))
-    pickle.dump(question_df, open("interaction.pkl", "wb"))
+    pickle.dump(interaction_df, open("interaction.pkl", "wb"))
 
     return
 
@@ -112,8 +111,5 @@ def recommend(user_id, months):
 
     ranking = model.afinidata_recommend(user_id=user_id, months=months, question_df=question_df, taxonomy_df=taxonomy_df, content_df=content_df, interaction_df=interaction_df)
 
-    content_for_age = content_df[(content_df['min_range'] <= months) & (content_df['max_range'] >= months)][
-        'id'].values.tolist()
-    sent_activities = interaction_df[interaction_df['user_id'] == user_id]['post_id'].values.tolist()
-    return ranking[(ranking['post_id'].isin(content_for_age)) & (~ranking['post_id'].isin(sent_activities))].to_json()
+    return ranking.to_json()
 

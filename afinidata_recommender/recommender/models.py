@@ -283,4 +283,4 @@ class CollaborativeFiltering(object):
         selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
         return predictions_temp[
             predictions_temp['area_id'] == selected_area
-            ].sort_values('predictions', ascending=False).to_json()
+            ].sort_values('predictions', ascending=False)
