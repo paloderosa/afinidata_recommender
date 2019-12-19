@@ -11,4 +11,3 @@ apispec[yaml]
 apispec-webframeworks
 tox
 gunicorn
-
