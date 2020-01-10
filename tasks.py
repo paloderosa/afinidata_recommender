@@ -44,12 +44,12 @@ def refresh_data(filename):
     content_df = reader_cm.get_data(
         'id, min_range, max_range',
         'posts_post',
-        None)
+        "status IN ('published')")
 
     interaction_df = reader_cm.get_data(
         'user_id, post_id',
         'posts_interaction',
-        "type IN ('sended', 'sent')")
+        "type IN ('sended', 'sent', 'dispatched')")
     interaction_df = interaction_df[~interaction_df['post_id'].isna()]
     interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
 
