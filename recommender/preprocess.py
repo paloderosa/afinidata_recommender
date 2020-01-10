@@ -369,4 +369,3 @@ class SetUpDataframes(object):
         """
         return cls.response_df(raw_df).pivot_table(
             index='question_id', columns='user_id', values='response', aggfunc='mean')
-

@@ -31,21 +31,43 @@ app = Celery('tasks', backend=CELERY_BACKEND, broker=CELERY_BROKER)
 
 @app.task
 def refresh_data(filename):
-    question_df = reader_cm.get_data('id, post_id', 'posts_question', None)
+    question_df = reader_cm.get_data(
+        'id, post_id',
+        'posts_question',
+        None)
 
-    taxonomy_df = reader_cm.get_data('post_id, area_id', 'posts_taxonomy', None)
+    taxonomy_df = reader_cm.get_data(
+        'post_id, area_id',
+        'posts_taxonomy',
+        None)
 
-    content_df = reader_cm.get_data('id, min_range, max_range', 'posts_post', None)
+    content_df = reader_cm.get_data(
+        'id, min_range, max_range',
+        'posts_post',
+        None)
 
-    interaction_df = reader_cm.get_data('user_id, post_id', 'posts_interaction', "type IN ('sended', 'sent')")
+    interaction_df = reader_cm.get_data(
+        'user_id, post_id',
+        'posts_interaction',
+        "type IN ('sended', 'sent')")
     interaction_df = interaction_df[~interaction_df['post_id'].isna()]
     interaction_df['post_id'] = interaction_df['post_id'].astype('int32')
+
+    response_df = reader_cm.get_data(
+        'user_id, response, question_id',
+        'posts_response',
+        "created_at >= '2019-09-20'",
+        None)
+    response_df = response_df[
+        (response_df['response'].apply(lambda x: x.isdigit())) & (response_df['response'] != '0')]
+    response_df = response_df.drop_duplicates().reset_index(drop=True)
 
     fresh_data = {
         'question_df': question_df.to_json(),
         'taxonomy_df': taxonomy_df.to_json(),
         'content_df': content_df.to_json(),
-        'interaction_df': interaction_df.to_json()
+        'interaction_df': interaction_df.to_json(),
+        'response_df': response_df.to_json()
     }
 
     with open(f'{filename}.pkl', 'wb') as f:
@@ -79,7 +101,7 @@ def train(epochs=10000, lr=0.00001, alpha=0., depth=1):
 
     # train test split
     datasets = Datasets(response_matrix)
-    train_set, test_set = datasets.train_test_split(0.10)
+    train_set, test_set = datasets.train_test_split(0.0)
 
     # model initialization
     model = CollaborativeFiltering()

@@ -250,10 +250,15 @@ class CollaborativeFiltering(object):
         taxonomy_df = pd.read_json(data_required['taxonomy_df'])
         content_df = pd.read_json(data_required['content_df'])
         interaction_df = pd.read_json(data_required['interaction_df'])
+        response_df = pd.read_json(data_required['response_df'])
+
+        response_df = response_df[response_df['user_id'] == user_id]
 
         # we add the columns corresponding to question_id and area_id
         predictions = pd.merge(predictions, question_df, 'inner', left_on='question_id', right_on='id')
         predictions = pd.merge(predictions, taxonomy_df, 'inner', 'post_id')
+        predictions = pd.merge(predictions, response_df, 'outer', 'question_id')
+        predictions.drop(['id', 'user_id'], axis=1, inplace=True)
 
         # lists from which we are going to filter next, we will only deliver content appropiate
         # for the age and activities not sent
@@ -265,10 +270,13 @@ class CollaborativeFiltering(object):
         relevant_unseen_predictions = relevant_predictions[~relevant_predictions['post_id'].isin(sent_activities)]
 
         # we group the predictions by area and take the mean
-        area_performance = relevant_predictions[['predictions', 'area_id']].groupby('area_id').mean()
+        area_performance = relevant_predictions[['predictions', 'area_id', 'response']].groupby('area_id').mean()
+        area_performance['score'] = area_performance[
+            ['response', 'predictions']].apply(
+            lambda row: row['predictions'] if pd.isna(row['response']) else row['response'], axis=1)
         # we normalize the mean predictions by area
-        area_performance['normalized'] = area_performance['predictions'].apply(
-            lambda x: (x - area_performance['predictions'].mean()) / area_performance['predictions'].std())
+        area_performance['normalized'] = area_performance['score'].apply(
+            lambda x: (x - area_performance['score'].mean()) / (0.001 + area_performance['score'].std()))
         # we compute probabilities from the normalized means such that lower means correspond
         # to higher probabilities
         area_performance['probabilities'] = area_performance['normalized'].apply(lambda x: np.exp(-x))
@@ -285,6 +293,7 @@ class CollaborativeFiltering(object):
             predictions_temp = relevant_unseen_predictions
 
         area_performance['probabilities'] = area_performance['probabilities'] / area_performance['probabilities'].sum()
+        print(area_performance)
         # we randomly select an area according to the assigned probabilities
         selected_area = np.random.choice(area_performance.index.values, p=area_performance['probabilities'].values)
         return predictions_temp[
